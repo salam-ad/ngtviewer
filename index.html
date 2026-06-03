@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TSPL Viewer</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>TSPL Viewer</h1>
+    <div class="meta">
+      <label>Zoom
+        <input type="range" id="zoom" min="1" max="6" step="0.5" value="2" />
+      </label>
+      <span id="zoom-val">2.0x</span>
+    </div>
+  </header>
+  <main class="panes">
+    <section class="pane editor-pane">
+      <div class="pane-header">TSPL Code</div>
+      <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+    </section>
+    <section class="pane preview-pane">
+      <div class="pane-header">Preview</div>
+      <div class="canvas-wrap">
+        <canvas id="preview"></canvas>
+      </div>
+    </section>
+  </main>
+  <footer class="status" id="status">Ready.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
