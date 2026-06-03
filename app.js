@@ -58,6 +58,7 @@ const ptToDots = (pt) => (pt * 203) / 72;
 
 const DEFAULT_TSPL = `SIZE 60 mm, 40 mm
 GAP 2 mm, 0 mm
+DIRECTION 0,0
 CLS
 TEXT 30, 25, "Roboto-Bold.TTF", 0, 0, 14, "Hello TSPL!"
 TEXT 30, 60, "Roboto-Regular.TTF", 0, 0, 10, "{Address}"
@@ -66,6 +67,7 @@ BOX 10, 10, 470, 310, 3
 BAR 20, 130, 440, 4
 BARCODE 20, 150, "128", 60, 1, 0, 2, 2, "123456789"
 QRCODE 20, 220, L, 6, A, 0, "https://example.com"
+; PUTBMP 350, 220, "logo.bmp"   ; drop an image named logo.bmp into the panel below
 PRINT 1, 1
 `;
 
@@ -184,13 +186,14 @@ function parseTSPL(src) {
         }
         case "TEXT": {
           // TEXT x,y,"font",rot,xmul,ymul,"text"
+          // For TTF fonts: xmul=0 sentinel, ymul=point size. Keep raw zeros.
           cmds.push({
             cmd,
             x: num(args[0]), y: num(args[1]),
             font: str(args[2]),
             rot: num(args[3]),
-            xmul: num(args[4]) || 1,
-            ymul: num(args[5]) || 1,
+            xmul: args[4] != null ? num(args[4]) : 1,
+            ymul: args[5] != null ? num(args[5]) : 1,
             text: str(args[6]),
           });
           break;
@@ -225,6 +228,26 @@ function parseTSPL(src) {
         }
         case "PRINT": {
           cmds.push({ cmd }); // no-op for preview
+          break;
+        }
+        case "PUTBMP": {
+          // PUTBMP x,y,"filename"[,bpp[,contrast]]
+          cmds.push({
+            cmd,
+            x: num(args[0]), y: num(args[1]),
+            name: str(args[2]),
+            bpp: args[3] != null ? num(args[3]) : 1,
+            contrast: args[4] != null ? num(args[4]) : 0,
+          });
+          break;
+        }
+        case "DIRECTION": {
+          // DIRECTION n[,m]   n: 0|1 print direction,  m: 0|1 mirror
+          cmds.push({
+            cmd,
+            n: num(args[0]) ? 1 : 0,
+            m: args[1] != null && num(args[1]) ? 1 : 0,
+          });
           break;
         }
         default: {
@@ -377,6 +400,109 @@ function drawQRCode(ctx, c) {
   });
 }
 
+// ---------- Image Registry (PUTBMP source) ----------
+const imageRegistry = new Map(); // key: lowercase name -> { img, displayName }
+
+function registryKey(name) {
+  return (name || "").toLowerCase().trim();
+}
+
+function lookupImage(name) {
+  const k = registryKey(name);
+  if (imageRegistry.has(k)) return imageRegistry.get(k);
+  // Try without extension
+  const stripped = k.replace(/\.[a-z0-9]+$/i, "");
+  if (stripped !== k && imageRegistry.has(stripped)) return imageRegistry.get(stripped);
+  // Try matching any registry entry that strips to this
+  for (const [key, val] of imageRegistry) {
+    const keyNoExt = key.replace(/\.[a-z0-9]+$/i, "");
+    if (keyNoExt === stripped || key === stripped) return val;
+  }
+  return null;
+}
+
+function addImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      imageRegistry.set(registryKey(file.name), { img, displayName: file.name });
+      // also index by base-name without extension for forgiving lookup
+      const noExt = registryKey(file.name).replace(/\.[a-z0-9]+$/i, "");
+      if (noExt && !imageRegistry.has(noExt)) {
+        imageRegistry.set(noExt, { img, displayName: file.name });
+      }
+      resolve();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Could not decode ${file.name}`)); };
+    img.src = url;
+  });
+}
+
+function removeImage(displayName) {
+  const k = registryKey(displayName);
+  const noExt = k.replace(/\.[a-z0-9]+$/i, "");
+  imageRegistry.delete(k);
+  imageRegistry.delete(noExt);
+}
+
+function renderImageList() {
+  const list = document.getElementById("img-list");
+  if (!list) return;
+  list.innerHTML = "";
+  // unique by displayName
+  const seen = new Set();
+  for (const { displayName, img } of imageRegistry.values()) {
+    if (seen.has(displayName)) continue;
+    seen.add(displayName);
+    const chip = document.createElement("span");
+    chip.className = "img-chip";
+    chip.innerHTML = `<span class="img-name">${displayName}</span><span class="img-dim">${img.naturalWidth}×${img.naturalHeight}</span><button type="button" aria-label="remove">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      removeImage(displayName);
+      renderImageList();
+      update();
+    });
+    list.appendChild(chip);
+  }
+  if (!seen.size) {
+    const hint = document.createElement("span");
+    hint.className = "img-hint";
+    hint.textContent = "No images. Drop image files here (or anywhere on the page) to use them with PUTBMP.";
+    list.appendChild(hint);
+  }
+}
+
+function drawPutBmp(ctx, c) {
+  const entry = lookupImage(c.name);
+  if (!entry) {
+    ctx.fillStyle = "#c00";
+    ctx.font = "12px monospace";
+    ctx.fillText(`[missing image: ${c.name}]`, c.x, c.y);
+    return;
+  }
+  ctx.drawImage(entry.img, c.x, c.y);
+}
+
+// ---------- Render Loop ----------
+function applyDirection(ctx, dir, w, h) {
+  // Reset to identity then apply direction transform.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (dir.n && dir.m) {
+    // 180° + horizontal mirror = vertical mirror
+    ctx.translate(0, h);
+    ctx.scale(1, -1);
+  } else if (dir.n) {
+    // 180° rotation: origin at bottom-right
+    ctx.translate(w, h);
+    ctx.scale(-1, -1);
+  } else if (dir.m) {
+    // horizontal mirror
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+}
+
 function render(parsed) {
   const canvas = document.getElementById("preview");
   const ctx = canvas.getContext("2d");
@@ -391,9 +517,12 @@ function render(parsed) {
   canvas.style.width = `${canvas.width * zoom}px`;
   canvas.style.height = `${canvas.height * zoom}px`;
 
-  // start white
+  // start white (identity transform)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let direction = { n: 0, m: 0 };
 
   for (const c of parsed.cmds) {
     switch (c.cmd) {
@@ -401,17 +530,43 @@ function render(parsed) {
       case "GAP":
       case "PRINT":
         break;
+      case "DIRECTION":
+        direction = { n: c.n, m: c.m };
+        break;
       case "CLS":
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#fff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         break;
-      case "BAR": drawBar(ctx, c); break;
-      case "BOX": drawBox(ctx, c); break;
-      case "TEXT": drawText(ctx, c); break;
-      case "BARCODE": drawBarcode(ctx, c); break;
-      case "QRCODE": drawQRCode(ctx, c); break;
+      case "BAR":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawBar(ctx, c);
+        break;
+      case "BOX":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawBox(ctx, c);
+        break;
+      case "TEXT":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawText(ctx, c);
+        break;
+      case "BARCODE":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawBarcode(ctx, c);
+        break;
+      case "QRCODE":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawQRCode(ctx, c);
+        break;
+      case "PUTBMP":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawPutBmp(ctx, c);
+        break;
     }
   }
+
+  // restore identity
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   if (parsed.errors.length) {
     setStatus(parsed.errors.join("\n"), "warn");
@@ -449,5 +604,49 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   editor.addEventListener("input", debounce(update, 150));
+
+  // ---- Image registry: drag & drop + file input ----
+  renderImageList();
+
+  const fileInput = document.getElementById("img-input");
+  if (fileInput) {
+    fileInput.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      await Promise.all(files.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))));
+      fileInput.value = "";
+      renderImageList();
+      update();
+    });
+  }
+
+  const dropZone = document.getElementById("img-drop");
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.classList.remove("dragover");
+    const items = e.dataTransfer && e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    const imgs = items.filter((f) => /^image\//.test(f.type) || /\.(bmp|png|jpe?g|gif|webp)$/i.test(f.name));
+    if (!imgs.length) return;
+    Promise.all(imgs.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))))
+      .then(() => { renderImageList(); update(); });
+  }
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    document.body.classList.add("dragover");
+  }
+  function handleDragLeave(e) {
+    if (e.target === document.body || e.target === dropZone) {
+      document.body.classList.remove("dragover");
+    }
+  }
+
+  [document.body, dropZone].filter(Boolean).forEach((el) => {
+    el.addEventListener("dragover", handleDragOver);
+    el.addEventListener("drop", handleDrop);
+    el.addEventListener("dragleave", handleDragLeave);
+  });
+
   update();
 });

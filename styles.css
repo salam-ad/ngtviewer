@@ -73,6 +73,82 @@ html, body {
   font-size: 13px;
   line-height: 1.5;
   tab-size: 2;
+  min-height: 0;
+}
+
+.images-panel {
+  flex: 0 0 auto;
+  max-height: 30%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #333;
+  background: #252526;
+}
+.images-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9cdcfe;
+  background: #2d2d30;
+  border-bottom: 1px solid #333;
+}
+.img-add {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #fff;
+  background: #007acc;
+  padding: 3px 10px;
+  border-radius: 3px;
+}
+.img-add:hover { background: #1188dd; }
+
+.img-list {
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 48px;
+}
+.img-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  background: #37373d;
+  border: 1px solid #444;
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: "SF Mono", Menlo, monospace;
+  color: #d4d4d4;
+}
+.img-chip .img-dim { color: #888; font-size: 11px; }
+.img-chip button {
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 6px;
+  border-radius: 50%;
+}
+.img-chip button:hover { color: #fff; background: #c72e2e; }
+.img-hint {
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
+body.dragover {
+  outline: 3px dashed #007acc;
+  outline-offset: -6px;
 }
 
 .canvas-wrap {

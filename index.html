@@ -22,6 +22,16 @@
     <section class="pane editor-pane">
       <div class="pane-header">TSPL Code</div>
       <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      <div class="images-panel" id="img-drop">
+        <div class="images-head">
+          <span>Images for PUTBMP</span>
+          <label class="img-add">
+            Add files
+            <input type="file" id="img-input" accept="image/*" multiple hidden />
+          </label>
+        </div>
+        <div class="img-list" id="img-list"></div>
+      </div>
     </section>
     <section class="pane preview-pane">
       <div class="pane-header">Preview</div>
