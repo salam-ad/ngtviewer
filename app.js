@@ -67,7 +67,7 @@ BOX 10, 10, 470, 310, 3
 BAR 20, 130, 440, 4
 BARCODE 20, 150, "128", 60, 1, 0, 2, 2, "123456789"
 QRCODE 20, 220, L, 6, A, 0, "https://example.com"
-; PUTBMP 350, 220, "logo.bmp"   ; drop an image named logo.bmp into the panel below
+PUTBMP 350, 220, "logo.bmp"
 PRINT 1, 1
 `;
 
