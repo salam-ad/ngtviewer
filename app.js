@@ -263,7 +263,7 @@ function parseTSPL(src) {
 }
 
 // ---------- Renderer ----------
-let zoom = 2;
+let zoom = 1.5;
 
 function withRotation(ctx, x, y, deg, draw) {
   if (!deg) { draw(x, y); return; }
