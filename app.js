@@ -66,8 +66,8 @@ TEXT 30, 90, "2", 0, 1, 1, "Bitmap font 2"
 BOX 10, 10, 470, 310, 3
 BAR 20, 130, 440, 4
 BARCODE 20, 150, "128", 60, 1, 0, 2, 2, "123456789"
-QRCODE 20, 220, L, 6, A, 0, "https://example.com"
-PUTBMP 350, 220, "logo.bmp"
+QRCODE 275, 150, L, 6, A, 0, "https://example.com"
+PUTBMP 340, 20, "default-image.bmp"
 PRINT 1, 1
 `;
 
@@ -421,17 +421,36 @@ function lookupImage(name) {
   return null;
 }
 
+function registerImage(img, displayName) {
+  imageRegistry.set(registryKey(displayName), { img, displayName });
+  const noExt = registryKey(displayName).replace(/\.[a-z0-9]+$/i, "");
+  if (noExt && !imageRegistry.has(noExt)) {
+    imageRegistry.set(noExt, { img, displayName });
+  }
+}
+
+function addDefaultImage() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      registerImage(img, "default-image.bmp");
+      resolve();
+    };
+    img.onerror = () => reject(new Error("Could not load assets/default-image.bmp"));
+    img.src = "assets/default-image.bmp";
+  });
+}
+
+function isBmpFile(file) {
+  return /\.bmp$/i.test(file.name);
+}
+
 function addImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      imageRegistry.set(registryKey(file.name), { img, displayName: file.name });
-      // also index by base-name without extension for forgiving lookup
-      const noExt = registryKey(file.name).replace(/\.[a-z0-9]+$/i, "");
-      if (noExt && !imageRegistry.has(noExt)) {
-        imageRegistry.set(noExt, { img, displayName: file.name });
-      }
+      registerImage(img, file.name);
       resolve();
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Could not decode ${file.name}`)); };
@@ -468,7 +487,7 @@ function renderImageList() {
   if (!seen.size) {
     const hint = document.createElement("span");
     hint.className = "img-hint";
-    hint.textContent = "No images. Drop image files here (or anywhere on the page) to use them with PUTBMP.";
+    hint.textContent = "No BMP images. Drop BMP files here (or anywhere on the page) to use them with PUTBMP.";
     list.appendChild(hint);
   }
 }
@@ -591,7 +610,7 @@ function update() {
   }
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   const editor = document.getElementById("editor");
   editor.value = DEFAULT_TSPL;
 
@@ -606,16 +625,25 @@ window.addEventListener("DOMContentLoaded", () => {
   editor.addEventListener("input", debounce(update, 150));
 
   // ---- Image registry: drag & drop + file input ----
+  let defaultImageError = null;
+  try {
+    await addDefaultImage();
+  } catch (err) {
+    defaultImageError = err;
+  }
   renderImageList();
 
   const fileInput = document.getElementById("img-input");
   if (fileInput) {
     fileInput.addEventListener("change", async (e) => {
       const files = Array.from(e.target.files || []);
-      await Promise.all(files.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))));
+      const bmpFiles = files.filter(isBmpFile);
+      const rejectedFiles = files.filter((f) => !isBmpFile(f));
+      await Promise.all(bmpFiles.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))));
       fileInput.value = "";
       renderImageList();
       update();
+      if (rejectedFiles.length) setStatus("Only BMP images are supported.", "error");
     });
   }
 
@@ -625,10 +653,18 @@ window.addEventListener("DOMContentLoaded", () => {
     e.stopPropagation();
     document.body.classList.remove("dragover");
     const items = e.dataTransfer && e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
-    const imgs = items.filter((f) => /^image\//.test(f.type) || /\.(bmp|png|jpe?g|gif|webp)$/i.test(f.name));
-    if (!imgs.length) return;
-    Promise.all(imgs.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))))
-      .then(() => { renderImageList(); update(); });
+    const bmpFiles = items.filter(isBmpFile);
+    const rejectedFiles = items.filter((f) => !isBmpFile(f));
+    if (!bmpFiles.length) {
+      if (rejectedFiles.length) setStatus("Only BMP images are supported.", "error");
+      return;
+    }
+    Promise.all(bmpFiles.map((f) => addImage(f).catch((err) => setStatus(err.message, "error"))))
+      .then(() => {
+        renderImageList();
+        update();
+        if (rejectedFiles.length) setStatus("Only BMP images are supported.", "error");
+      });
   }
   function handleDragOver(e) {
     e.preventDefault();
@@ -649,4 +685,5 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   update();
+  if (defaultImageError) setStatus(defaultImageError.message, "error");
 });

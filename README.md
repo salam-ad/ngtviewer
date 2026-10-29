@@ -15,8 +15,9 @@ QR-code rendering requires an internet connection.
 - TSPL dimensions in millimeters or raw printer dots
 - Text using built-in bitmap fonts or TTF/OTF font names
 - Boxes, bars, 1D barcodes, and QR codes
-- Add images by dropping them onto the page or choosing files, then reference
-  them with `PUTBMP`
+- Add BMP images by dropping them onto the page or choosing files, then
+  reference them with `PUTBMP`
+- A bundled sample image is loaded automatically for the initial example
 - Parse warnings and errors in the status bar
 
 Coordinates use printer dots (8 dots/mm at 203 DPI). The preview supports
@@ -25,8 +26,10 @@ Coordinates use printer dots (8 dots/mm at 203 DPI). The preview supports
 
 ## Image references
 
-Add an image with drag-and-drop or **Add files**, then use its filename in a
-`PUTBMP` command, for example:
+The viewer supports BMP images only. The initial example uses
+`assets/default-image.bmp`, which is included with the project and loaded
+automatically. Add other `.bmp` files with drag-and-drop or **Add files**, then
+use their filenames in `PUTBMP` commands, for example:
 
 ```tspl
 PUTBMP 350, 220, "logo.bmp"
