@@ -492,6 +492,22 @@ const BARCODE_MAP = {
 // BARCODE "human" arg -> JsBarcode human-readable text alignment
 const HRI_ALIGN = { 1: "left", 2: "center", 3: "right" };
 
+// Expected data shape, shown when JsBarcode rejects the input
+const BARCODE_DATA_HINTS = {
+  EAN13: "expects 12 digits, or 13 with a valid check digit",
+  EAN8: "expects 7 digits, or 8 with a valid check digit",
+  UPC: "expects 11 digits, or 12 with a valid check digit",
+  ITF: "expects an even number of digits",
+  ITF14: "expects 13 digits, or 14 with a valid check digit",
+};
+
+// JsBarcode's dist build throws plain strings for invalid input, not Error objects
+function barcodeErrorMessage(e, fmt) {
+  const msg = e instanceof Error ? e.message : String(e);
+  const hint = BARCODE_DATA_HINTS[fmt];
+  return hint ? `${msg} (${hint})` : msg;
+}
+
 function drawBarcode(ctx, c) {
   const fmt = BARCODE_MAP[c.type.toUpperCase()] || "CODE128";
   const off = document.createElement("canvas");
@@ -512,7 +528,7 @@ function drawBarcode(ctx, c) {
     // Bad data for chosen symbology
     ctx.fillStyle = "#c00";
     ctx.font = "12px monospace";
-    ctx.fillText(`[barcode err: ${e.message}]`, c.x, c.y);
+    ctx.fillText(`[barcode err: ${barcodeErrorMessage(e, fmt)}]`, c.x, c.y);
     return;
   }
   withRotation(ctx, c.x, c.y, c.rot, (x, y) => {
