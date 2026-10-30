@@ -36,7 +36,8 @@ Session/agent scratch files live outside the repo (e.g. `~/.copilot/session-stat
 5. **Parser** — `parseTSPL()` returns `{ cmds, errors }`. Each command becomes a plain object `{ cmd, ...fields }`. Unknown commands produce a warning but do not abort.
 6. **Image Registry** — `imageRegistry: Map<lowercaseName, { img, displayName }>` for `PUTBMP` lookups. Drag-drop or file-input registers images.
 7. **Renderer** — one `drawXxx()` per command type. `render(parsed)` walks the command list, applying `applyDirection()` before each visual draw call.
-8. **Wiring** — DOMContentLoaded handler binds the editor, zoom slider, and drag-drop.
+8. **Argument Hints** — `COMMAND_HELP` documents each command's `args`, `optional` args, and `content`. `analyzeCursor()` finds the command/argument at the editor cursor and `renderArgHint()` fills the `#arg-hint` panel under the editor.
+9. **Wiring** — DOMContentLoaded handler binds the editor, zoom slider, and drag-drop.
 
 ## Coordinate System
 
@@ -69,6 +70,7 @@ Session/agent scratch files live outside the repo (e.g. `~/.copilot/session-stat
 3. Add `case "FOO": applyDirection(ctx, direction, canvas.width, canvas.height); drawFoo(ctx, c); break;` to the render loop.
 4. If the command has no visual effect (e.g. printer config), add it alongside `SIZE`/`GAP`/`PRINT` in the no-op switch arm.
 5. Update `DEFAULT_TSPL` if it's a commonly used command worth showcasing.
+6. Add a `COMMAND_HELP` entry so the argument-hint panel can describe it. Keep it in sync with the parser's argument order.
 
 ## Common Pitfalls
 

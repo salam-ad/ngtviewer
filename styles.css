@@ -76,6 +76,52 @@ html, body {
   min-height: 0;
 }
 
+.arg-hint {
+  flex: 0 0 auto;
+  max-height: 35%;
+  overflow-y: auto;
+  padding: 8px 12px;
+  border-top: 1px solid #333;
+  background: #252526;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hint-sig {
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  color: #d4d4d4;
+}
+.hint-cmd { color: #569cd6; font-weight: 600; }
+.hint-arg { color: #9cdcfe; padding: 0 2px; border-radius: 2px; }
+.hint-arg.opt { color: #808080; }
+.hint-arg.active { color: #fff; background: #094771; font-weight: 600; }
+.hint-summary { color: #aaa; margin: 2px 0 6px; }
+.hint-list { margin: 0; padding-left: 22px; color: #888; }
+.hint-list li { padding: 1px 4px; border-radius: 3px; }
+.hint-list li.active { background: #094771; color: #fff; }
+.hint-name {
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  color: #9cdcfe;
+  margin-right: 6px;
+}
+.hint-list li.active .hint-name { color: #fff; font-weight: 600; }
+.hint-opt {
+  font-size: 10px;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-right: 6px;
+}
+.hint-desc { color: #ccc; }
+.hint-list li.active .hint-desc { color: #fff; }
+.hint-val {
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  color: #ce9178;
+  margin-left: 6px;
+}
+.hint-empty { color: #888; font-style: italic; }
+.hint-warn { color: #d7ba7d; margin-top: 4px; }
+
 .images-panel {
   flex: 0 0 auto;
   max-height: 30%;

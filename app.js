@@ -730,6 +730,264 @@ function render(parsed) {
   }
 }
 
+// ---------- Argument Hints ----------
+// Per-command argument docs. `args` are required and positional, `optional`
+// follow them in order, and `content` (if any) is always the last argument.
+const ALIGN_DESC = "0 = default (left), 1 = left, 2 = center, 3 = right.";
+const ROT_DESC = "Clockwise rotation in degrees: 0, 90, 180 or 270.";
+const FONT_DESC = "\"1\"–\"5\" for built-in bitmap fonts, or a TTF file name such as \"Roboto-Bold.TTF\".";
+const XMUL_DESC = "Bitmap font: horizontal scale (1–10). TTF: width scale (0 = same as height).";
+const YMUL_DESC = "Bitmap font: vertical scale (1–10). TTF: font size in points.";
+
+const COMMAND_HELP = {
+  SIZE: {
+    summary: "Sets the label width and height.",
+    args: [
+      { name: "width", desc: "Label width. Add \"mm\" for millimetres; a bare number is dots." },
+      { name: "height", desc: "Label height. Add \"mm\" for millimetres; a bare number is dots." },
+    ],
+  },
+  GAP: {
+    summary: "Sets the gap between labels (no effect on the preview).",
+    args: [
+      { name: "distance", desc: "Gap height between labels (mm or dots)." },
+      { name: "offset", desc: "Gap offset (mm or dots)." },
+    ],
+  },
+  DIRECTION: {
+    summary: "Sets print direction and mirroring for the commands that follow.",
+    args: [{ name: "direction", desc: "0 = normal, 1 = rotated 180°." }],
+    optional: [{ name: "mirror", desc: "0 = normal, 1 = mirror image." }],
+  },
+  CLS: {
+    summary: "Clears the image buffer (blank white label). Takes no arguments.",
+    args: [],
+  },
+  TEXT: {
+    summary: "Draws a single line of text.",
+    args: [
+      { name: "x", desc: "Horizontal position in dots. With alignment, this is the left/center/right anchor." },
+      { name: "y", desc: "Vertical position of the top of the text, in dots." },
+      { name: "font", desc: FONT_DESC },
+      { name: "rotation", desc: ROT_DESC },
+      { name: "x-multiplication", desc: XMUL_DESC },
+      { name: "y-multiplication", desc: YMUL_DESC },
+    ],
+    optional: [{ name: "alignment", desc: ALIGN_DESC }],
+    content: { name: "content", desc: "Text to print, in double quotes." },
+  },
+  BLOCK: {
+    summary: "Draws word-wrapped text inside a box.",
+    args: [
+      { name: "x", desc: "Left edge of the block, in dots." },
+      { name: "y", desc: "Top edge of the block, in dots." },
+      { name: "width", desc: "Block width in dots; text wraps at this width." },
+      { name: "height", desc: "Block height in dots; text below it is clipped." },
+      { name: "font", desc: FONT_DESC },
+      { name: "rotation", desc: ROT_DESC },
+      { name: "x-multiplication", desc: XMUL_DESC },
+      { name: "y-multiplication", desc: YMUL_DESC },
+    ],
+    optional: [
+      { name: "space", desc: "Extra spacing between lines, in dots." },
+      { name: "alignment", desc: `${ALIGN_DESC} Applied to each line.` },
+      { name: "fit", desc: "1 = shrink the font until the text fits the block, 0 = off." },
+    ],
+    content: { name: "content", desc: "Text to print, in double quotes." },
+  },
+  BAR: {
+    summary: "Draws a filled black rectangle.",
+    args: [
+      { name: "x", desc: "Left edge in dots." },
+      { name: "y", desc: "Top edge in dots." },
+      { name: "width", desc: "Width in dots." },
+      { name: "height", desc: "Height in dots." },
+    ],
+  },
+  BOX: {
+    summary: "Draws a rectangle outline.",
+    args: [
+      { name: "x", desc: "Left edge (x start) in dots." },
+      { name: "y", desc: "Top edge (y start) in dots." },
+      { name: "x-end", desc: "Right edge (x end) in dots." },
+      { name: "y-end", desc: "Bottom edge (y end) in dots." },
+      { name: "thickness", desc: "Line thickness in dots." },
+    ],
+  },
+  BARCODE: {
+    summary: "Draws a 1D barcode.",
+    args: [
+      { name: "x", desc: "Horizontal position in dots. With alignment, this is the left/center/right anchor." },
+      { name: "y", desc: "Top edge in dots." },
+      { name: "type", desc: "Symbology, e.g. \"128\", \"39\", \"93\", \"EAN13\", \"EAN8\", \"UPCA\", \"ITF14\", \"CODA\"." },
+      { name: "height", desc: "Bar height in dots." },
+      { name: "human readable", desc: "Text under the bars: 0 = hidden, 1 = left, 2 = center, 3 = right." },
+      { name: "rotation", desc: ROT_DESC },
+      { name: "narrow", desc: "Narrow bar width in dots." },
+      { name: "wide", desc: "Wide bar width in dots (not used by the preview)." },
+    ],
+    optional: [{ name: "alignment", desc: ALIGN_DESC }],
+    content: { name: "content", desc: "Data to encode, in double quotes." },
+  },
+  QRCODE: {
+    summary: "Draws a QR code.",
+    args: [
+      { name: "x", desc: "Left edge in dots." },
+      { name: "y", desc: "Top edge in dots." },
+      { name: "ECC level", desc: "Error correction: L (7%), M (15%), Q (25%) or H (30%)." },
+      { name: "cell width", desc: "Size of one QR module in dots (1–10)." },
+      { name: "mode", desc: "A = automatic encoding, M = manual." },
+      { name: "rotation", desc: ROT_DESC },
+    ],
+    content: { name: "content", desc: "Data to encode, in double quotes." },
+  },
+  PUTBMP: {
+    summary: "Draws a BMP image added in the Images panel.",
+    args: [
+      { name: "x", desc: "Left edge in dots." },
+      { name: "y", desc: "Top edge in dots." },
+      { name: "filename", desc: "Image file name, in double quotes. Add the file in the Images panel first." },
+    ],
+    optional: [
+      { name: "bpp", desc: "Bits per pixel: 1 (default) or 8 (not used by the preview)." },
+      { name: "contrast", desc: "Contrast adjustment (not used by the preview)." },
+    ],
+  },
+  PRINT: {
+    summary: "Prints the label (no effect on the preview).",
+    args: [{ name: "sets", desc: "Number of label sets to print." }],
+    optional: [{ name: "copies", desc: "Copies of each label in a set." }],
+  },
+};
+
+function helpParams(help) {
+  return [...help.args, ...(help.optional || []), ...(help.content ? [help.content] : [])];
+}
+
+// Map the i-th argument on a line to its index in helpParams(help), or -1 for
+// an extra argument. Optional args sit before the content, so a quoted token past
+// the required args is treated as content.
+function resolveParamIndex(help, i, quoted) {
+  const nReq = help.args.length;
+  const nOpt = (help.optional || []).length;
+  if (i < nReq) return i;
+  if (help.content && (quoted || i - nReq >= nOpt)) return nReq + nOpt;
+  return i - nReq < nOpt ? i : -1;
+}
+
+// Split raw argument text into tokens ({ value, quoted, start, end } offsets
+// relative to `rest`), honoring quotes like tokenizeArgs().
+function splitArgsWithOffsets(rest) {
+  const out = [];
+  let start = 0, inQ = false, quoted = false;
+  for (let i = 0; i <= rest.length; i++) {
+    const c = rest[i];
+    if (c === '"') { inQ = !inQ; quoted = true; continue; }
+    if (i === rest.length || (c === "," && !inQ)) {
+      out.push({ value: rest.slice(start, i).trim().replace(/^"|"$/g, ""), quoted, start, end: i });
+      start = i + 1;
+      quoted = false;
+    }
+  }
+  return out;
+}
+
+// Work out which command and argument the cursor is in.
+function analyzeCursor(src, pos) {
+  const lineStart = src.lastIndexOf("\n", pos - 1) + 1;
+  let lineEnd = src.indexOf("\n", pos);
+  if (lineEnd === -1) lineEnd = src.length;
+  const line = src.slice(lineStart, lineEnd).replace(/\r$/, "");
+  const col = pos - lineStart;
+
+  const lead = line.length - line.trimStart().length;
+  const body = line.slice(lead);
+  if (!body || body.startsWith(";")) return null;
+
+  const ws = body.search(/\s/);
+  const cmd = (ws === -1 ? body : body.slice(0, ws)).toUpperCase();
+  if (ws === -1) return { cmd, tokens: [], argIndex: -1 };
+
+  const restOffset = lead + ws + 1;
+  const tokens = splitArgsWithOffsets(body.slice(ws + 1));
+  let argIndex = -1;
+  if (col >= restOffset) {
+    const rel = col - restOffset;
+    argIndex = tokens.findIndex((t) => rel >= t.start && rel <= t.end);
+  }
+  return { cmd, tokens, argIndex };
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function renderArgHint(info) {
+  const box = document.getElementById("arg-hint");
+  if (!box) return;
+  box.replaceChildren();
+
+  if (!info) {
+    box.appendChild(el("div", "hint-empty", "Put the cursor on a command to see what each argument means."));
+    return;
+  }
+
+  const help = COMMAND_HELP[info.cmd];
+  if (!help) {
+    box.appendChild(el("div", "hint-empty",
+      `Unknown command "${info.cmd}". Supported: ${Object.keys(COMMAND_HELP).join(", ")}.`));
+    return;
+  }
+
+  const params = helpParams(help);
+  const nReq = help.args.length;
+  const nOpt = (help.optional || []).length;
+  const values = new Array(params.length).fill(null);
+  let extra = 0;
+  info.tokens.forEach((t, i) => {
+    const p = resolveParamIndex(help, i, t.quoted);
+    if (p === -1) { if (t.value) extra++; } else values[p] = t.value;
+  });
+  const active = info.argIndex >= 0 && info.tokens[info.argIndex]
+    ? resolveParamIndex(help, info.argIndex, info.tokens[info.argIndex].quoted)
+    : -1;
+
+  const sig = el("div", "hint-sig");
+  sig.appendChild(el("span", "hint-cmd", info.cmd));
+  params.forEach((p, i) => {
+    const isOpt = i >= nReq && i < nReq + nOpt;
+    sig.appendChild(document.createTextNode(i === 0 ? " " : ", "));
+    sig.appendChild(el("span", `hint-arg${isOpt ? " opt" : ""}${i === active ? " active" : ""}`,
+      isOpt ? `[${p.name}]` : p.name));
+  });
+  box.appendChild(sig);
+  box.appendChild(el("div", "hint-summary", help.summary));
+
+  if (params.length) {
+    const list = el("ol", "hint-list");
+    params.forEach((p, i) => {
+      const li = el("li", i === active ? "active" : "");
+      li.appendChild(el("span", "hint-name", p.name));
+      if (i >= nReq && i < nReq + nOpt) li.appendChild(el("span", "hint-opt", "optional"));
+      li.appendChild(el("span", "hint-desc", p.desc));
+      if (values[i] != null && values[i] !== "") li.appendChild(el("span", "hint-val", `= ${values[i]}`));
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+  }
+  if (extra) {
+    box.appendChild(el("div", "hint-warn", `${extra} extra argument(s) not used by ${info.cmd}.`));
+  }
+}
+
+function updateArgHint() {
+  const editor = document.getElementById("editor");
+  renderArgHint(analyzeCursor(editor.value, editor.selectionStart));
+}
+
 // ---------- Wiring ----------
 function debounce(fn, ms) {
   let t;
@@ -759,6 +1017,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   editor.addEventListener("input", debounce(update, 150));
+  for (const ev of ["input", "keyup", "click", "focus", "select"]) {
+    editor.addEventListener(ev, updateArgHint);
+  }
+  updateArgHint();
 
   // ---- Image registry: drag & drop + file input ----
   let defaultImageError = null;

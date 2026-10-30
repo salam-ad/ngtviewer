@@ -19,10 +19,12 @@ QR-code rendering requires an internet connection.
   reference them with `PUTBMP`
 - A bundled sample image is loaded automatically for the initial example
 - Parse warnings and errors in the status bar
+- Argument hints under the editor: put the cursor on a command to see what
+  each argument means, with the one under the cursor highlighted
 
 Coordinates use printer dots (8 dots/mm at 203 DPI). The preview supports
-`SIZE`, `GAP`, `DIRECTION`, `CLS`, `TEXT`, `BAR`, `BOX`, `BARCODE`, `QRCODE`,
-`PUTBMP`, and `PRINT`. `GAP` and `PRINT` do not affect the visual preview.
+`SIZE`, `GAP`, `DIRECTION`, `CLS`, `TEXT`, `BLOCK`, `BAR`, `BOX`, `BARCODE`,
+`QRCODE`, `PUTBMP`, and `PRINT`. `GAP` and `PRINT` do not affect the visual preview.
 
 ## Image references
 
