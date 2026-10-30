@@ -23,8 +23,8 @@ QR-code rendering requires an internet connection.
   each argument means, with the one under the cursor highlighted
 
 Coordinates use printer dots (8 dots/mm at 203 DPI). The preview supports
-`SIZE`, `GAP`, `DIRECTION`, `CLS`, `TEXT`, `BLOCK`, `BAR`, `BOX`, `BARCODE`,
-`QRCODE`, `PUTBMP`, and `PRINT`. `GAP` and `PRINT` do not affect the visual preview.
+`SIZE`, `GAP`, `CODEPAGE`, `DIRECTION`, `CLS`, `TEXT`, `BLOCK`, `BAR`, `BOX`, `BARCODE`,
+`QRCODE`, `PUTBMP`, and `PRINT`. `GAP`, `CODEPAGE` and `PRINT` do not affect the visual preview.
 
 ## Image references
 

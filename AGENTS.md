@@ -51,6 +51,7 @@ Session/agent scratch files live outside the repo (e.g. `~/.copilot/session-stat
 |-----------|-------|
 | `SIZE`    | Accepts `mm` units or raw dots. |
 | `GAP`     | Parsed, visually no-op. |
+| `CODEPAGE n` | Printer config, visually no-op (the preview is always Unicode). Warns on a missing or unknown code page (`KNOWN_CODEPAGES`). |
 | `DIRECTION n[,m]` | n=0/1 flip, m=0/1 mirror. Applied as canvas transform per draw. |
 | `CLS`     | Clears canvas to white (also resets transform). |
 | `TEXT`    | Two modes: **bitmap** (font="1".."5", xmul/ymul are integer multipliers) and **TTF** (font ends in `.ttf`/`.otf` or xmul=0, then ymul is point size). Optional `alignment` before the content (0/1 left, 2 center, 3 right; x is the anchor, along the rotated axis). |

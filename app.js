@@ -6,6 +6,16 @@ const DPMM = 8; // dots per mm (203 DPI)
 // TSPL built-in bitmap font cell heights in dots (per TSPL2 spec)
 const FONT_HEIGHTS = { "1": 12, "2": 16, "3": 20, "4": 24, "5": 48 };
 
+// Code pages accepted by TSPL2 CODEPAGE (stored upper-case).
+const KNOWN_CODEPAGES = new Set([
+  "UTF-8",
+  "437", "850", "852", "860", "863", "865", "857", "861", "862", "855", "866", "737", "851", "869",
+  "1250", "1251", "1252", "1253", "1254", "1255", "1256", "1257", "1258",
+  "8859-1", "8859-2", "8859-3", "8859-4", "8859-5", "8859-6", "8859-7", "8859-8",
+  "8859-9", "8859-10", "8859-15",
+  "932", "936", "949", "950",
+]);
+
 // Recognised weight/style suffixes used in TTF filenames (e.g. Roboto-BoldItalic.TTF)
 const FONT_STYLE_SUFFIXES = {
   "thin":        { weight: "100", style: "normal" },
@@ -59,6 +69,7 @@ const ptToDots = (pt) => (pt * 203) / 72;
 const DEFAULT_TSPL = `SIZE 60 mm, 40 mm
 GAP 2 mm, 0 mm
 DIRECTION 0,0
+CODEPAGE UTF-8
 CLS
 TEXT 30, 25, "Roboto-Bold.TTF", 0, 0, 14, "Hello TSPL!"
 TEXT 30, 60, "Roboto-Regular.TTF", 0, 0, 10, "{Address}"
@@ -173,6 +184,17 @@ function parseTSPL(src) {
         }
         case "GAP": {
           cmds.push({ cmd }); // visual no-op
+          break;
+        }
+        case "CODEPAGE": {
+          // CODEPAGE n — printer-side character decoding; the preview is already Unicode.
+          const page = str(args[0]).trim().toUpperCase();
+          if (!page) {
+            errors.push(`Line ${lineNo + 1}: CODEPAGE needs a code page, e.g. CODEPAGE UTF-8`);
+          } else if (!KNOWN_CODEPAGES.has(page)) {
+            errors.push(`Line ${lineNo + 1}: unknown code page "${str(args[0]).trim()}" (ignored)`);
+          }
+          cmds.push({ cmd, page });
           break;
         }
         case "CLS": {
@@ -679,6 +701,7 @@ function render(parsed) {
     switch (c.cmd) {
       case "SIZE":
       case "GAP":
+      case "CODEPAGE":
       case "PRINT":
         break;
       case "DIRECTION":
@@ -753,6 +776,14 @@ const COMMAND_HELP = {
       { name: "distance", desc: "Gap height between labels (mm or dots)." },
       { name: "offset", desc: "Gap offset (mm or dots)." },
     ],
+  },
+  CODEPAGE: {
+    summary: "Sets the printer's character code page (no effect on the preview, which is always Unicode).",
+    args: [{
+      name: "code page",
+      desc: "UTF-8, a DOS page (437, 850, 852, 860, 863, 865, 857, 861, 862, 855, 866, 737, 851, 869), " +
+        "a Windows page (1250–1258), ISO 8859 (8859-1 … 8859-15) or Asian (932, 936, 949, 950).",
+    }],
   },
   DIRECTION: {
     summary: "Sets print direction and mirroring for the commands that follow.",
