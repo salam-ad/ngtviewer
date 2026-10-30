@@ -481,7 +481,8 @@ function drawBox(ctx, c) {
 // Map TSPL barcode type -> JsBarcode format
 const BARCODE_MAP = {
   "128": "CODE128", "128M": "CODE128",
-  "39": "CODE39", "93": "CODE93",
+  // CODE93 requires JsBarcode >= 3.12; full ASCII matches TSPL's "93" charset
+  "39": "CODE39", "93": "CODE93FullASCII",
   "EAN13": "EAN13", "EAN8": "EAN8",
   "UPCA": "UPC", "UPCE": "UPC",
   "ITF": "ITF", "ITF14": "ITF14",
