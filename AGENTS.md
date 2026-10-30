@@ -52,10 +52,11 @@ Session/agent scratch files live outside the repo (e.g. `~/.copilot/session-stat
 | `GAP`     | Parsed, visually no-op. |
 | `DIRECTION n[,m]` | n=0/1 flip, m=0/1 mirror. Applied as canvas transform per draw. |
 | `CLS`     | Clears canvas to white (also resets transform). |
-| `TEXT`    | Two modes: **bitmap** (font="1".."5", xmul/ymul are integer multipliers) and **TTF** (font ends in `.ttf`/`.otf` or xmul=0, then ymul is point size). |
+| `TEXT`    | Two modes: **bitmap** (font="1".."5", xmul/ymul are integer multipliers) and **TTF** (font ends in `.ttf`/`.otf` or xmul=0, then ymul is point size). Optional `alignment` before the content (0/1 left, 2 center, 3 right; x is the anchor, along the rotated axis). |
+| `BLOCK`   | `x,y,width,height,font,rot,xmul,ymul,[space,][align,][fit,]"content"`. Word-wrapped to `width`, clipped to `height`; `fit=1` shrinks the font until it fits. Shares font handling with `TEXT` via `resolveFont()`. |
 | `BAR`     | Filled rectangle. |
 | `BOX`     | Stroked rectangle; stroke is inset so total extents match `x..x2` × `y..y2`. |
-| `BARCODE` | Rendered via JsBarcode to an offscreen canvas, then blit with rotation. See `BARCODE_MAP` for TSPL→JsBarcode type mapping. |
+| `BARCODE` | Rendered via JsBarcode to an offscreen canvas, then blit with rotation. See `BARCODE_MAP` for TSPL→JsBarcode type mapping. Optional `alignment` before the data (same values as `TEXT`); `human` 1/2/3 = left/center/right human-readable text. |
 | `QRCODE`  | Rendered via qrcode-generator to an offscreen canvas. |
 | `PUTBMP`  | Looks up an image in the registry; missing → red `[missing image: name]`. |
 | `PRINT`   | No-op for preview. |
@@ -73,6 +74,7 @@ Session/agent scratch files live outside the repo (e.g. `~/.copilot/session-stat
 
 - **Don't** split TSPL args on commas naively — `TEXT 0,0,"3",0,1,1,"Hello, World"` has a comma inside the quoted string.
 - **Don't** use `num(args[i]) || default` if `0` is a legal value (e.g. `xmul=0` is the TTF sentinel). Use `args[i] != null ? num(args[i]) : default`.
+- **Don't** read content from a fixed index for `TEXT`/`BARCODE`/`BLOCK` — optional args (alignment etc.) shift it. Content is the last token.
 - **Don't** forget `ctx.setTransform(1,0,0,1,0,0)` after the render loop — direction transforms must not leak.
 - **Don't** introduce Node-only constructs (`require`, `process`, `fs`). The smoke-test snippets in `/tmp` are throwaway.
 - **Don't** add ESM `import`/`export` — the scripts are loaded as classic scripts.

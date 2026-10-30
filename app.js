@@ -63,10 +63,12 @@ CLS
 TEXT 30, 25, "Roboto-Bold.TTF", 0, 0, 14, "Hello TSPL!"
 TEXT 30, 60, "Roboto-Regular.TTF", 0, 0, 10, "{Address}"
 TEXT 30, 90, "2", 0, 1, 1, "Bitmap font 2"
+TEXT 240, 108, "2", 0, 1, 1, 2, "Centered on x=240"
 BOX 10, 10, 470, 310, 3
 BAR 20, 130, 440, 4
-BARCODE 20, 150, "128", 60, 1, 0, 2, 2, "123456789"
+BARCODE 20, 150, "128", 60, 2, 0, 2, 2, "123456789"
 QRCODE 275, 150, L, 6, A, 0, "https://example.com"
+BLOCK 20, 245, 240, 55, "Roboto-Regular.TTF", 0, 0, 12, 0, 2, 1, "BLOCK text wraps, aligns and shrinks to fit its box"
 PUTBMP 340, 20, "default-image.bmp"
 PRINT 1, 1
 `;
@@ -128,6 +130,16 @@ function str(tok) {
   return typeof tok === "string" ? tok : tok.value;
 }
 
+// TSPL alignment: 0 = default (left), 1 = left, 2 = center, 3 = right.
+// Invalid values fall back to 0 with a warning.
+function parseAlign(tok, lineNo, errors) {
+  if (tok == null || str(tok).trim() === "") return 0;
+  const raw = str(tok).trim();
+  if (/^[0-3]$/.test(raw)) return Number(raw);
+  errors.push(`Line ${lineNo + 1}: invalid alignment "${raw}" (using left)`);
+  return 0;
+}
+
 // ---------- Parser ----------
 function parseTSPL(src) {
   const lines = src.split(/\r?\n/);
@@ -185,8 +197,9 @@ function parseTSPL(src) {
           break;
         }
         case "TEXT": {
-          // TEXT x,y,"font",rot,xmul,ymul,"text"
+          // TEXT x,y,"font",rot,xmul,ymul,[alignment,]"text"
           // For TTF fonts: xmul=0 sentinel, ymul=point size. Keep raw zeros.
+          const hasAlign = args.length >= 8;
           cmds.push({
             cmd,
             x: num(args[0]), y: num(args[1]),
@@ -194,12 +207,15 @@ function parseTSPL(src) {
             rot: num(args[3]),
             xmul: args[4] != null ? num(args[4]) : 1,
             ymul: args[5] != null ? num(args[5]) : 1,
-            text: str(args[6]),
+            align: hasAlign ? parseAlign(args[6], lineNo, errors) : 0,
+            text: str(args[hasAlign ? args.length - 1 : 6]),
           });
           break;
         }
         case "BARCODE": {
-          // BARCODE x,y,"type",height,human,rot,narrow,wide,"data"
+          // BARCODE x,y,"type",height,human,rot,narrow,wide,[alignment,]"data"
+          // human: 0 none, 1 left, 2 center, 3 right (human-readable text alignment)
+          const hasAlign = args.length >= 10;
           cmds.push({
             cmd,
             x: num(args[0]), y: num(args[1]),
@@ -209,7 +225,27 @@ function parseTSPL(src) {
             rot: num(args[5]),
             narrow: num(args[6]) || 2,
             wide: num(args[7]) || 2,
-            data: str(args[8]),
+            align: hasAlign ? parseAlign(args[8], lineNo, errors) : 0,
+            data: str(args[hasAlign ? args.length - 1 : 8]),
+          });
+          break;
+        }
+        case "BLOCK": {
+          // BLOCK x,y,width,height,"font",rot,xmul,ymul,[space,][align,][fit,]"content"
+          // Optional args are positional; content is always the last token.
+          const opt = args.length > 9 ? args.slice(8, args.length - 1) : [];
+          cmds.push({
+            cmd,
+            x: num(args[0]), y: num(args[1]),
+            width: num(args[2]), height: num(args[3]),
+            font: str(args[4]),
+            rot: num(args[5]),
+            xmul: args[6] != null ? num(args[6]) : 1,
+            ymul: args[7] != null ? num(args[7]) : 1,
+            space: opt[0] != null ? num(opt[0]) : 0,
+            align: parseAlign(opt[1], lineNo, errors),
+            fit: opt[2] != null && num(opt[2]) === 1 ? 1 : 0,
+            text: str(args[args.length > 8 ? args.length - 1 : 8]),
           });
           break;
         }
@@ -275,31 +311,42 @@ function withRotation(ctx, x, y, deg, draw) {
   ctx.restore();
 }
 
-function drawText(ctx, c) {
-  // TTF mode: font name contains a "." (e.g. "Roboto-Bold.TTF") OR xmul == 0.
-  // In TTF mode, arg6 (stored as c.ymul) is the point size, and arg5 (c.xmul) is x-scale (0 -> 1).
-  const isTTF = /\./.test(c.font) || c.xmul === 0;
+// TTF mode: font name contains a "." (e.g. "Roboto-Bold.TTF") OR xmul == 0.
+function isTTFFont(c) {
+  return /\./.test(c.font) || c.xmul === 0;
+}
 
-  let heightDots, xScale, yScale, cssFamily, cssWeight, cssStyle;
-
-  if (isTTF) {
-    const pt = c.ymul || 12;       // point size
-    heightDots = ptToDots(pt);
-    xScale = c.xmul && c.xmul !== 0 ? c.xmul : 1;
-    yScale = 1;
+// Resolve TEXT/BLOCK font fields to canvas font settings.
+// In TTF mode, c.ymul is the point size and c.xmul is x-scale (0 -> 1).
+function resolveFont(c) {
+  if (isTTFFont(c)) {
     const ref = parseFontRef(c.font);
-    cssFamily = `"${ref.family}", sans-serif`;
-    cssWeight = ref.weight;
-    cssStyle = ref.style;
-  } else {
-    const baseH = FONT_HEIGHTS[c.font] || 16;
-    heightDots = baseH;
-    xScale = c.xmul || 1;
-    yScale = c.ymul || 1;
-    cssFamily = `"SF Mono", Menlo, Consolas, monospace`;
-    cssWeight = "400";
-    cssStyle = "normal";
+    return {
+      heightDots: ptToDots(c.ymul || 12),
+      xScale: c.xmul && c.xmul !== 0 ? c.xmul : 1,
+      yScale: 1,
+      font: `${ref.style} ${ref.weight} ${ptToDots(c.ymul || 12)}px "${ref.family}", sans-serif`,
+    };
   }
+  const heightDots = FONT_HEIGHTS[c.font] || 16;
+  return {
+    heightDots,
+    xScale: c.xmul || 1,
+    yScale: c.ymul || 1,
+    font: `normal 400 ${heightDots}px "SF Mono", Menlo, Consolas, monospace`,
+  };
+}
+
+// Offset of the draw origin for a run of width w anchored at x.
+function alignOffset(align, w) {
+  if (align === 2) return -w / 2;
+  if (align === 3) return -w;
+  return 0;
+}
+
+function drawText(ctx, c) {
+  const f = resolveFont(c);
+  const text = c.text || "";
 
   ctx.fillStyle = "#000";
   ctx.textBaseline = "top";
@@ -307,9 +354,90 @@ function drawText(ctx, c) {
   withRotation(ctx, c.x, c.y, c.rot, (x, y) => {
     ctx.save();
     ctx.translate(x, y);
-    if (xScale !== 1 || yScale !== 1) ctx.scale(xScale, yScale);
-    ctx.font = `${cssStyle} ${cssWeight} ${heightDots}px ${cssFamily}`;
-    ctx.fillText(c.text || "", 0, 0);
+    if (f.xScale !== 1 || f.yScale !== 1) ctx.scale(f.xScale, f.yScale);
+    ctx.font = f.font;
+    // Measured width is in unscaled font units, matching the scaled coordinate space.
+    const w = ctx.measureText(text).width;
+    ctx.fillText(text, alignOffset(c.align, w), 0);
+    ctx.restore();
+  });
+}
+
+// Word-wrap text to maxW (in current ctx.font units). Words longer than a line
+// are broken by character; every line holds at least one character.
+function wrapLines(ctx, text, maxW) {
+  const lines = [];
+  let cur = "";
+  const fits = (s) => ctx.measureText(s).width <= maxW;
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const candidate = cur ? `${cur} ${word}` : word;
+    if (fits(candidate)) { cur = candidate; continue; }
+    if (cur) { lines.push(cur); cur = ""; }
+    let rest = word;
+    while (rest && !fits(rest)) {
+      let n = 1;
+      while (n < rest.length && fits(rest.slice(0, n + 1))) n++;
+      lines.push(rest.slice(0, n));
+      rest = rest.slice(n);
+    }
+    cur = rest;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// Returns a smaller copy of the font fields, or null if it can't shrink further.
+function shrinkFont(c) {
+  if (isTTFFont(c)) {
+    const pt = c.ymul || 12;
+    return pt > 2 ? { ...c, ymul: pt - 1 } : null;
+  }
+  const xm = c.xmul || 1, ym = c.ymul || 1;
+  if (xm <= 1 && ym <= 1) return null;
+  return { ...c, xmul: Math.max(1, xm - 1), ymul: Math.max(1, ym - 1) };
+}
+
+function drawBlock(ctx, c) {
+  const text = c.text || "";
+
+  const layout = (fc) => {
+    const f = resolveFont(fc);
+    ctx.save();
+    ctx.font = f.font;
+    const lines = wrapLines(ctx, text, c.width / f.xScale);
+    ctx.restore();
+    const lineH = f.heightDots * f.yScale + c.space;
+    return { f, lines, lineH, total: lines.length * lineH - c.space };
+  };
+
+  let fc = c;
+  let L = layout(fc);
+  if (c.fit) {
+    while (L.total > c.height) {
+      const next = shrinkFont(fc);
+      if (!next) break;
+      fc = next;
+      L = layout(fc);
+    }
+  }
+
+  const { f, lines, lineH } = L;
+  withRotation(ctx, c.x, c.y, c.rot, (x, y) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.rect(0, 0, c.width, c.height);
+    ctx.clip();
+    ctx.scale(f.xScale, f.yScale);
+    ctx.font = f.font;
+    ctx.fillStyle = "#000";
+    ctx.textBaseline = "top";
+    const boxW = c.width / f.xScale;
+    lines.forEach((ln, i) => {
+      const w = ctx.measureText(ln).width;
+      const dx = c.align === 2 ? (boxW - w) / 2 : c.align === 3 ? boxW - w : 0;
+      ctx.fillText(ln, dx, (i * lineH) / f.yScale);
+    });
     ctx.restore();
   });
 }
@@ -339,6 +467,9 @@ const BARCODE_MAP = {
   "MSI": "MSI",
 };
 
+// BARCODE "human" arg -> JsBarcode human-readable text alignment
+const HRI_ALIGN = { 1: "left", 2: "center", 3: "right" };
+
 function drawBarcode(ctx, c) {
   const fmt = BARCODE_MAP[c.type.toUpperCase()] || "CODE128";
   const off = document.createElement("canvas");
@@ -348,7 +479,8 @@ function drawBarcode(ctx, c) {
       format: fmt,
       width: c.narrow,
       height: c.height,
-      displayValue: !!c.human,
+      displayValue: c.human > 0,
+      textAlign: HRI_ALIGN[c.human] || "center",
       margin: 0,
       background: "#ffffff",
       lineColor: "#000000",
@@ -362,7 +494,7 @@ function drawBarcode(ctx, c) {
     return;
   }
   withRotation(ctx, c.x, c.y, c.rot, (x, y) => {
-    ctx.drawImage(off, x, y);
+    ctx.drawImage(off, x + alignOffset(c.align, off.width), y);
   });
 }
 
@@ -568,6 +700,10 @@ function render(parsed) {
       case "TEXT":
         applyDirection(ctx, direction, canvas.width, canvas.height);
         drawText(ctx, c);
+        break;
+      case "BLOCK":
+        applyDirection(ctx, direction, canvas.width, canvas.height);
+        drawBlock(ctx, c);
         break;
       case "BARCODE":
         applyDirection(ctx, direction, canvas.width, canvas.height);
